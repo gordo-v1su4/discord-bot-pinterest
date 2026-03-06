@@ -23,7 +23,7 @@ Discord bot that handles interactions over HTTP (slash commands, components). Do
    bun start
    ```
 
-   Server listens on `http://0.0.0.0:8080` (or `PORT` from env).  
+   Server listens on `http://0.0.0.0:3000` by default (or `PORT` from env). On Windows with Tailscale, 8080 may be blocked; the default 3000 avoids that for local dev.  
    - `GET /` or `GET /health` → 200 OK (for health checks).  
    - `POST /` or `POST /interactions` → Discord interaction payload (raw body used for signature verification).
 
@@ -62,6 +62,8 @@ docker run -p 8080:8080 \
   -e DISCORD_APPLICATION_ID=your_app_id \
   discord-bot-pinterest
 ```
+
+**Note:** On Windows with **Tailscale** (or similar), Docker may fail to bind to some ports. Use a different host port (e.g. `-p 8081:8080`) or run with `bun start` for local dev.
 
 ## Deploy to Google Cloud Run
 

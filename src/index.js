@@ -13,7 +13,7 @@ import {
 } from "./discord.js";
 import { handlePinterestCommand } from "./pinterest.js";
 
-const PORT = Number(process.env.PORT) || 8080;
+const PORT = Number(process.env.PORT) || 3000;
 const HOST = "0.0.0.0";
 const DISCORD_PUBLIC_KEY = process.env.DISCORD_PUBLIC_KEY || "";
 

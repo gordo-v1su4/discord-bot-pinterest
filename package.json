@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "node --watch src/index.js"
+    "start": "bun run src/index.js",
+    "dev": "bun --watch src/index.js"
   },
   "dependencies": {
     "tweetnacl": "^1.0.3"
