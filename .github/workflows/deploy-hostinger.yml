@@ -1,0 +1,44 @@
+# Deploy to Hostinger VPS on every push to main.
+# Requires GitHub repo secrets: HOSTINGER_HOST, HOSTINGER_USER, HOSTINGER_SSH_KEY
+# Optional: HOSTINGER_APP_PATH (default: ~/discord-bot-pinterest)
+name: Deploy to Hostinger
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOSTINGER_HOST }}
+          username: ${{ secrets.HOSTINGER_USER }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -e
+            APP_PATH="${{ secrets.HOSTINGER_APP_PATH }}"
+            [ -z "$APP_PATH" ] && APP_PATH="$HOME/discord-bot-pinterest"
+            if [ ! -d "$APP_PATH" ]; then
+              echo "App path $APP_PATH not found. Clone the repo there first (e.g. git clone <repo-url> $APP_PATH) and add .env."
+              exit 1
+            fi
+            cd "$APP_PATH"
+            git fetch origin main
+            git reset --hard origin/main
+            docker build -t discord-bot-pinterest:latest .
+            docker stop discord-bot-pinterest 2>/dev/null || true
+            docker rm discord-bot-pinterest 2>/dev/null || true
+            if [ -f .env ]; then
+              docker run -d --restart unless-stopped --name discord-bot-pinterest -p 8080:8080 --env-file .env discord-bot-pinterest:latest
+            else
+              echo "No .env file. Run container with env vars from GitHub Secrets or create .env on server."
+              docker run -d --restart unless-stopped --name discord-bot-pinterest -p 8080:8080 \
+                -e DISCORD_PUBLIC_KEY="${{ secrets.DISCORD_PUBLIC_KEY }}" \
+                -e PORT=8080 \
+                discord-bot-pinterest:latest
+            fi
+            docker image prune -f
