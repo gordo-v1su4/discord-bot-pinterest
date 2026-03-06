@@ -1,12 +1,12 @@
-FROM node:20-slim
+FROM oven/bun:1-slim
 
 WORKDIR /app
 
-COPY package.json ./
-RUN npm install --omit=dev
+COPY package.json bun.lock ./
+RUN bun install --frozen-lockfile
 
 COPY src/ ./src/
 
 EXPOSE 8080
 ENV PORT=8080
-CMD ["node", "src/index.js"]
+CMD ["bun", "run", "src/index.js"]

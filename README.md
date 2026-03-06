@@ -19,8 +19,8 @@ Discord bot that handles interactions over HTTP (slash commands, components). Do
 2. Install and start:
 
    ```bash
-   npm install
-   npm start
+   bun install
+   bun start
    ```
 
    Server listens on `http://0.0.0.0:8080` (or `PORT` from env).  
