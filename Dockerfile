@@ -7,5 +7,8 @@ RUN bun install --frozen-lockfile
 
 COPY src/ ./src/
 
-# Gateway bot – connects to Discord, no HTTP server
+EXPOSE 8080
+ENV HEALTH_PORT=8080
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD bun -e "const r=await fetch('http://localhost:8080/health');process.exit(r.ok?0:1)"
 CMD ["bun", "src/index.js"]

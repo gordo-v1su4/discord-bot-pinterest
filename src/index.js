@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import http from "node:http";
 import { createHash } from "node:crypto";
 import {
   ActionRowBuilder,
@@ -1171,6 +1172,22 @@ if (dryRun) {
       process.exit(1);
     });
 } else {
+  // Health endpoint for Docker / monitoring (GET / or GET /health)
+  const healthPort = Number(process.env.HEALTH_PORT) || 8080;
+  const healthPayload = JSON.stringify({ ok: true, service: "pindeck-discord-bot" });
+  http
+    .createServer((req, res) => {
+      if (req.method === "GET" && (req.url === "/" || req.url === "/health")) {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(healthPayload);
+      } else {
+        res.writeHead(404).end();
+      }
+    })
+    .listen(healthPort, "0.0.0.0", () => {
+      console.log(`Health check: http://0.0.0.0:${healthPort}/health`);
+    });
+
   const client = new Client({
     intents: [
       GatewayIntentBits.Guilds,

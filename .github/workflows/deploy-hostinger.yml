@@ -33,9 +33,9 @@ jobs:
             docker stop discord-bot-pinterest 2>/dev/null || true
             docker rm discord-bot-pinterest 2>/dev/null || true
             if [ -f .env ]; then
-              docker run -d --restart unless-stopped --name discord-bot-pinterest --env-file .env discord-bot-pinterest:latest
+              docker run -d --restart unless-stopped --name discord-bot-pinterest -p 8080:8080 --env-file .env discord-bot-pinterest:latest
             elif [ -f .env.local ]; then
-              docker run -d --restart unless-stopped --name discord-bot-pinterest --env-file .env.local discord-bot-pinterest:latest
+              docker run -d --restart unless-stopped --name discord-bot-pinterest -p 8080:8080 --env-file .env.local discord-bot-pinterest:latest
             else
               echo "No .env or .env.local. Create one on server with DISCORD_TOKEN, DISCORD_CLIENT_ID, etc."
               exit 1

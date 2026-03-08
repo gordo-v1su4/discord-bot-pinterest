@@ -49,7 +49,7 @@ From pindeck monorepo root you’d run `bun run discord:bot`; here you run `bun 
 
 ```bash
 docker build -t discord-bot-pinterest .
-docker run -d --restart unless-stopped --name discord-bot-pinterest --env-file .env discord-bot-pinterest
+docker run -d --restart unless-stopped --name discord-bot-pinterest -p 8080:8080 --env-file .env discord-bot-pinterest
 ```
 
-No port mapping – the bot uses Discord Gateway, not an HTTP server.
+- **Health check**: `GET http://your-server:8080/health` → `{"ok":true,"service":"pindeck-discord-bot"}`. Docker HEALTHCHECK uses this.
