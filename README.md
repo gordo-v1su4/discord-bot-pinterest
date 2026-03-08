@@ -1,129 +1,55 @@
-# discord-bot-pinterest
+# Pindeck Discord Bot
 
-Discord bot that handles interactions over HTTP (slash commands, components). Docker-ready and deployable to **Google Cloud Run** (scale-to-zero, dormant until Discord sends a request) or **Hostinger** (always-on container).
+Same as `pindeck/services/discord-bot` – standalone deploy. Gateway-based bot using `discord.js`. `/images` commands, ingest, queue moderation.
 
 ## How it works
 
-- **No Gateway**: Discord sends a `POST` to your URL when a user runs `/pinterest` or clicks a component. The server responds with JSON. No long-lived WebSocket.
-- **Verification**: Requests are verified using `X-Signature-Ed25519` and `X-Signature-Timestamp` with your application public key.
+- **Gateway**: Long-lived connection to Discord. Registers `/images` and handles interactions, reactions, etc.
+- **Commands**: `/images menu`, `/images send`, `/images panel`, `/images import`, `/images review`, `/images approve`, `/images reject`, `/images generate`
+- **Ingest**: Emoji reaction triggers import to Pindeck. Links Convex ingest, queue, moderation endpoints.
 
-## Local run
+## Environment
 
-1. Copy env and set Discord public key (required):
+Set these in `.env.local` (or `.env`). Same paths as pindeck: loads `.env.local`, `.env` from cwd, then `../../.env.local`, `../.env.local`, etc., so you can reuse pindeck’s root `.env.local`.
 
-   ```bash
-   cp .env.example .env
-   # Edit .env: set DISCORD_PUBLIC_KEY (from Discord Developer Portal → Application → General Information)
-   ```
+| Variable | Required | Description |
+|---------|----------|-------------|
+| `DISCORD_TOKEN` | Yes | Bot token from Discord Developer Portal |
+| `DISCORD_CLIENT_ID` or `DISCORD_APPLICATION_ID` | Yes | Application ID |
+| `DISCORD_GUILD_ID` | No | Recommended for fast slash command updates |
+| `DISCORD_IMAGES_JSON` | No | JSON array of image presets (uses samples if omitted) |
+| `DISCORD_INGEST_EMOJIS` | No | Emoji triggers for import (e.g. `📌`) |
+| `INGEST_API_KEY` | For ingest | Must match Convex |
+| `PINDECK_USER_ID` | For ingest | Convex user id for imports |
+| `PINDECK_INGEST_URL` / `CONVEX_SITE_URL` | No | Defaults from Convex URL |
+| `PINDECK_DISCORD_QUEUE_URL`, `PINDECK_DISCORD_MODERATION_URL` | No | Queue/moderation endpoints |
+| `DISCORD_STATUS_WEBHOOK_URL` | No | Optional status webhook |
 
-2. Install and start:
-
-   ```bash
-   bun install
-   bun start
-   ```
-
-   Server listens on `http://0.0.0.0:3000` by default (or `PORT` from env). On Windows with Tailscale, 8080 may be blocked; the default 3000 avoids that for local dev.  
-   - `GET /` or `GET /health` → 200 OK (for health checks).  
-   - `POST /` or `POST /interactions` → Discord interaction payload (raw body used for signature verification).
-
-## Register slash command
-
-Register the `/pinterest` command once (e.g. after deploy so Discord knows your URL):
-
-1. In [Discord Developer Portal](https://discord.com/developers/applications) → your application → **Slash Commands** (or use the API).
-2. Create command:
-   - Name: `pinterest`
-   - Subcommands: `link` (get auth URL), `info` (config status).
-
-Or use Discord REST API:
+## Install and run
 
 ```bash
-# Requires DISCORD_APPLICATION_ID and DISCORD_TOKEN in .env
-curl -X PUT "https://discord.com/api/v10/applications/$DISCORD_APPLICATION_ID/commands" \
-  -H "Authorization: Bot $DISCORD_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '[{"name":"pinterest","description":"Pinterest helpers","options":[{"name":"link","type":1,"description":"Get Pinterest auth URL"},{"name":"info","type":1,"description":"Show config status"}]}]'
+bun install
+bun start
 ```
+
+From pindeck monorepo root you’d run `bun run discord:bot`; here you run `bun start` from this repo.
+
+## Bot invite
+
+- Scopes: `bot`, `applications.commands`
+- Permissions: View Channels, Send Messages, Embed Links, Read Message History, Add Reactions, Use Application Commands
+
+## Hostinger deploy
+
+1. Clone, add `.env` or `.env.local` with required vars.
+2. GitHub Actions: secrets `HOSTINGER_HOST`, `HOSTINGER_USER`, `HOSTINGER_SSH_KEY`.
+3. Push to `main` → workflow builds Docker image and runs the Gateway bot (no HTTP port; connects outbound to Discord).
 
 ## Docker
 
-Build:
-
 ```bash
 docker build -t discord-bot-pinterest .
+docker run -d --restart unless-stopped --name discord-bot-pinterest --env-file .env discord-bot-pinterest
 ```
 
-Run locally:
-
-```bash
-docker run -p 8080:8080 \
-  -e DISCORD_PUBLIC_KEY=your_public_key_hex \
-  -e DISCORD_APPLICATION_ID=your_app_id \
-  discord-bot-pinterest
-```
-
-**Note:** On Windows with **Tailscale** (or similar), Docker may fail to bind to some ports. Use a different host port (e.g. `-p 8081:8080`) or run with `bun start` for local dev.
-
-## Deploy to Google Cloud Run
-
-1. Build and deploy (replace `YOUR_REGION` and project):
-
-   ```bash
-   gcloud run deploy discord-bot-pinterest --source . --region YOUR_REGION --allow-unauthenticated
-   ```
-
-2. Set environment variables in Cloud Run (Console or `gcloud run services update`):
-   - `DISCORD_PUBLIC_KEY` (required)
-   - `DISCORD_APPLICATION_ID`, `DISCORD_TOKEN` (optional)
-   - `PINTEREST_APP_ID`, `PINTEREST_OAUTH_URL` (optional)
-
-3. In Discord Developer Portal → your application → **General Information** → **Interactions Endpoint URL**: set to your Cloud Run URL (e.g. `https://discord-bot-pinterest-xxxxx.run.app`). Discord will send all interactions to this URL. The container is **dormant until a request hits it** (scale-to-zero).
-
-## Hostinger (always-on)
-
-On a Hostinger VPS you can run the same image as a long-lived container (no scale-to-zero).
-
-### One-time server setup
-
-1. On the Hostinger VPS ensure **Docker** and **Git** are installed.
-2. Clone this repo (replace with your repo URL):
-   ```bash
-   git clone https://github.com/YOUR_USER/discord-bot-pinterest.git ~/discord-bot-pinterest
-   cd ~/discord-bot-pinterest
-   cp .env.example .env
-   # Edit .env and set DISCORD_PUBLIC_KEY, etc.
-   ```
-3. Add your server’s SSH public key to the repo (or use a deploy key) so the server can `git pull` from GitHub.
-
-### GitHub Actions (auto-deploy on push to main)
-
-1. In the **discord-bot-pinterest** GitHub repo go to **Settings → Secrets and variables → Actions**.
-2. Add these repository secrets:
-   - **HOSTINGER_HOST** – VPS hostname or IP (e.g. `srv123.hostinger.com` or `123.45.67.89`).
-   - **HOSTINGER_USER** – SSH user (e.g. `root` or `u123456789`).
-   - **HOSTINGER_SSH_KEY** – Full contents of the **private** SSH key that can log in as that user (paste the entire key including `-----BEGIN ... KEY-----` and `-----END ... KEY-----`).
-3. Optional: **DISCORD_PUBLIC_KEY** – If you don’t use a `.env` file on the server, the workflow can pass this into the container (see workflow file).
-4. Push to **main**. The workflow [.github/workflows/deploy-hostinger.yml](.github/workflows/deploy-hostinger.yml) runs: SSH into the VPS, `git pull`, `docker build`, then `docker run` with `--restart unless-stopped`. The app directory on the server must already exist (clone it once as in “One-time server setup” above). Default path is `~/discord-bot-pinterest`; to use another path, add a secret **HOSTINGER_APP_PATH** and set `env` in the workflow so the script can use it, or edit the path in the workflow file.
-
-### Manual run (no CI)
-
-```bash
-docker run -d --restart unless-stopped -p 8080:8080 \
-  -e DISCORD_PUBLIC_KEY=... \
-  -e DISCORD_APPLICATION_ID=... \
-  discord-bot-pinterest
-```
-
-Use a reverse proxy (e.g. nginx) and point your domain to the VPS; then set the **Interactions Endpoint URL** in Discord to `https://your-domain.com`.
-
-## Environment variables
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DISCORD_PUBLIC_KEY` | Yes | Application public key (hex), for request verification |
-| `DISCORD_APPLICATION_ID` | No | Application ID (for registering commands) |
-| `DISCORD_TOKEN` | No | Bot token (for follow-up or command registration) |
-| `PORT` | No | Server port (default 8080) |
-| `PINTEREST_APP_ID` | No | Pinterest app ID (for `/pinterest link`) |
-| `PINTEREST_OAUTH_URL` | No | Pinterest OAuth base URL (default Pinterest OAuth) |
+No port mapping – the bot uses Discord Gateway, not an HTTP server.

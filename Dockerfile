@@ -7,6 +7,5 @@ RUN bun install --frozen-lockfile
 
 COPY src/ ./src/
 
-EXPOSE 8080
-ENV PORT=8080
-CMD ["bun", "run", "src/index.js"]
+# Gateway bot – connects to Discord, no HTTP server
+CMD ["bun", "src/index.js"]
